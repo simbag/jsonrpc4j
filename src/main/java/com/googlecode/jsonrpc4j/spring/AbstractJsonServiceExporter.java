@@ -36,6 +36,8 @@ abstract class AbstractJsonServiceExporter extends RemoteExporter implements Ini
 	private List<JsonRpcInterceptor> interceptorList;
 	private ExecutorService batchExecutorService = null;
 	private long parallelBatchProcessingTimeout;
+	private SecurityServletRequestResolver securityServletRequestResolver = new DefaultSecurityServletRequestResolver();
+	private SecurityResourceRequestResolver securityResourceRequestResolver = new DefaultSecurityResourceRequestResolver();
 
 	/**
 	 * {@inheritDoc}
@@ -75,6 +77,8 @@ abstract class AbstractJsonServiceExporter extends RemoteExporter implements Ini
 		jsonRpcServer.setShouldLogInvocationErrors(shouldLogInvocationErrors);
 		jsonRpcServer.setBatchExecutorService(batchExecutorService);
 		jsonRpcServer.setParallelBatchProcessingTimeout(parallelBatchProcessingTimeout);
+		jsonRpcServer.setSecurityServletRequestResolver(securityServletRequestResolver);
+		jsonRpcServer.setSecurityResourceRequestResolver(securityResourceRequestResolver);
 
 		if (contentType != null) {
 			jsonRpcServer.setContentType(contentType);
@@ -214,4 +218,12 @@ abstract class AbstractJsonServiceExporter extends RemoteExporter implements Ini
     public void setParallelBatchProcessingTimeout(long parallelBatchProcessingTimeout) {
         this.parallelBatchProcessingTimeout = parallelBatchProcessingTimeout;
     }
+
+	public void setSecurityServletRequestResolver(SecurityServletRequestResolver securityServletRequestResolver) {
+		this.securityServletRequestResolver = securityServletRequestResolver;
+	}
+
+	public void setSecurityResourceRequestResolver(SecurityResourceRequestResolver securityResourceRequestResolver) {
+		this.securityResourceRequestResolver = securityResourceRequestResolver;
+	}
 }

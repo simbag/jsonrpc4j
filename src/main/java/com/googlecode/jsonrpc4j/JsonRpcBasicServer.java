@@ -5,9 +5,14 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.*;
 import com.googlecode.jsonrpc4j.ErrorResolver.JsonError;
+import com.googlecode.jsonrpc4j.spring.DefaultSecurityResourceRequestResolver;
+import com.googlecode.jsonrpc4j.spring.DefaultSecurityServletRequestResolver;
+import com.googlecode.jsonrpc4j.spring.SecurityResourceRequestResolver;
+import com.googlecode.jsonrpc4j.spring.SecurityServletRequestResolver;
 import net.iharder.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -62,6 +67,7 @@ public class JsonRpcBasicServer {
 	
 	static {
 		loadAnnotationSupportEngine();
+		SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
 	}
 	
 	private final ObjectMapper mapper;
@@ -80,6 +86,8 @@ public class JsonRpcBasicServer {
 	private List<JsonRpcInterceptor> interceptorList = new ArrayList<>();
     private ExecutorService batchExecutorService = null;
     private long parallelBatchProcessingTimeout;
+	protected SecurityServletRequestResolver securityServletRequestResolver = new DefaultSecurityServletRequestResolver();
+	protected SecurityResourceRequestResolver securityResourceRequestResolver = new DefaultSecurityResourceRequestResolver();
 
 	/**
 	 * Creates the server with the given {@link ObjectMapper} delegating
@@ -1108,7 +1116,15 @@ public class JsonRpcBasicServer {
         this.parallelBatchProcessingTimeout = parallelBatchProcessingTimeout;
     }
 
-    private static class ErrorObjectWithJsonError {
+	public void setSecurityServletRequestResolver(SecurityServletRequestResolver securityServletRequestResolver) {
+		this.securityServletRequestResolver = securityServletRequestResolver;
+	}
+
+	public void setSecurityResourceRequestResolver(SecurityResourceRequestResolver securityResourceRequestResolver) {
+		this.securityResourceRequestResolver = securityResourceRequestResolver;
+	}
+
+	private static class ErrorObjectWithJsonError {
 		private final ObjectNode node;
 		private final JsonError error;
 		

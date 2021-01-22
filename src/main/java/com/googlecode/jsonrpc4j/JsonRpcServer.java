@@ -3,6 +3,7 @@ package com.googlecode.jsonrpc4j;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import javax.portlet.ResourceRequest;
 import javax.portlet.ResourceResponse;
@@ -104,6 +105,7 @@ public class JsonRpcServer extends JsonRpcBasicServer {
 		logger.debug("Handing ResourceRequest {}", request.getMethod());
 		response.setContentType(contentType);
 		InputStream input = getRequestStream(request);
+		SecurityContextHolder.getContext().setAuthentication(securityResourceRequestResolver.getContext(request));
 		OutputStream output = response.getPortletOutputStream();
 		handleRequest(input, output);
 		// fix to not flush within handleRequest() but outside so http status code can be set
@@ -136,6 +138,7 @@ public class JsonRpcServer extends JsonRpcBasicServer {
 		response.setContentType(contentType);
 		OutputStream output = response.getOutputStream();
 		InputStream input = getRequestStream(request);
+		SecurityContextHolder.getContext().setAuthentication(securityServletRequestResolver.getContext(request));
 		int result = ErrorResolver.JsonError.PARSE_ERROR.code;
 		int contentLength = 0;
 		ByteArrayOutputStream byteOutput = new ByteArrayOutputStream();

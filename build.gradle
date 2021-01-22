@@ -41,6 +41,7 @@ dependencies {
     ext {
         jacksonVersion = '2.8.5'
         springVersion = '4.3.5.RELEASE'
+        springSecurityVersion = '5.2.8.RELEASE'
         springBotVersion = '1.4.3.RELEASE'
         jettyVersion = '9.4.0.RC3'
         slf4jVersion = '1.7.22'
@@ -59,6 +60,7 @@ dependencies {
     compile "org.springframework:spring-context:${springVersion}", optional
     compile "org.springframework:spring-web:${springVersion}", optional
     compile "org.springframework:spring-webmvc:${springVersion}", optional
+    compile "org.springframework.security:spring-security-core:${springSecurityVersion}", optional
 
     compile 'commons-codec:commons-codec:1.10', optional
     compile 'org.apache.httpcomponents:httpcore-nio:4.4.5', optional
