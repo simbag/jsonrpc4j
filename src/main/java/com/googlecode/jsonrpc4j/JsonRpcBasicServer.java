@@ -12,7 +12,7 @@ import com.googlecode.jsonrpc4j.spring.SecurityServletRequestResolver;
 import net.iharder.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.concurrent.DelegatingSecurityContextExecutorService;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -67,7 +67,6 @@ public class JsonRpcBasicServer {
 	
 	static {
 		loadAnnotationSupportEngine();
-		SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
 	}
 	
 	private final ObjectMapper mapper;
@@ -1112,14 +1111,35 @@ public class JsonRpcBasicServer {
         this.batchExecutorService = batchExecutorService;
     }
 
+	/**
+	 * Sets the configured {@link ExecutorService} to use it for parallel JSON-RPC batch processing
+	 * and wraps it with DelegatingSecurityContextExecutorService.
+	 * Must be used instead of {@link #setBatchExecutorService(ExecutorService)} since we don't know how new threads are created in ExecutorService
+	 *
+	 * @see <a href="https://github.com/spring-projects/spring-security/issues/6856">this issue</a>
+	 * @param batchExecutorService configured {@link ExecutorService}
+	 */
+	public void setBatchExecutorServiceAndWrapWithSecureExecutor(ExecutorService batchExecutorService) {
+    	this.batchExecutorService = new DelegatingSecurityContextExecutorService(batchExecutorService);
+	}
+
+	/**
+	 * @param parallelBatchProcessingTimeout timeout used for parallel batch processing
+	 */
     public void setParallelBatchProcessingTimeout(long parallelBatchProcessingTimeout) {
         this.parallelBatchProcessingTimeout = parallelBatchProcessingTimeout;
     }
 
+	/**
+	 * @param securityServletRequestResolver creates Authentication object from HttpServletRequest
+	 */
 	public void setSecurityServletRequestResolver(SecurityServletRequestResolver securityServletRequestResolver) {
 		this.securityServletRequestResolver = securityServletRequestResolver;
 	}
 
+	/**
+	 * @param securityResourceRequestResolver creates Authentication object from ResourceRequest
+	 */
 	public void setSecurityResourceRequestResolver(SecurityResourceRequestResolver securityResourceRequestResolver) {
 		this.securityResourceRequestResolver = securityResourceRequestResolver;
 	}

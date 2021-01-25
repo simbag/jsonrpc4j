@@ -63,6 +63,8 @@ public class AutoJsonRpcServiceImplExporter implements BeanFactoryPostProcessor 
 	private List<JsonRpcInterceptor> interceptorList = null;
     private ExecutorService batchExecutorService = null;
     private long parallelBatchProcessingTimeout;
+    private SecurityServletRequestResolver securityServletRequestResolver = new DefaultSecurityServletRequestResolver();
+	private SecurityResourceRequestResolver securityResourceRequestResolver = new DefaultSecurityResourceRequestResolver();
 	
 	/**
 	 * Finds the beans to expose.
@@ -339,4 +341,18 @@ public class AutoJsonRpcServiceImplExporter implements BeanFactoryPostProcessor 
     public void setParallelBatchProcessingTimeout(long parallelBatchProcessingTimeout) {
         this.parallelBatchProcessingTimeout = parallelBatchProcessingTimeout;
     }
+
+	/**
+	 * @param securityServletRequestResolver creates Authentication object from HttpServletRequest
+	 */
+	public void setSecurityServletRequestResolver(SecurityServletRequestResolver securityServletRequestResolver) {
+		this.securityServletRequestResolver = securityServletRequestResolver;
+	}
+
+	/**
+	 * @param securityResourceRequestResolver creates Authentication object from ResourceRequest
+	 */
+	public void setSecurityResourceRequestResolver(SecurityResourceRequestResolver securityResourceRequestResolver) {
+		this.securityResourceRequestResolver = securityResourceRequestResolver;
+	}
 }

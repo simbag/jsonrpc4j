@@ -75,7 +75,7 @@ abstract class AbstractJsonServiceExporter extends RemoteExporter implements Ini
 		jsonRpcServer.setHttpStatusCodeProvider(httpStatusCodeProvider);
 		jsonRpcServer.setConvertedParameterTransformer(convertedParameterTransformer);
 		jsonRpcServer.setShouldLogInvocationErrors(shouldLogInvocationErrors);
-		jsonRpcServer.setBatchExecutorService(batchExecutorService);
+		jsonRpcServer.setBatchExecutorServiceAndWrapWithSecureExecutor(batchExecutorService);
 		jsonRpcServer.setParallelBatchProcessingTimeout(parallelBatchProcessingTimeout);
 		jsonRpcServer.setSecurityServletRequestResolver(securityServletRequestResolver);
 		jsonRpcServer.setSecurityResourceRequestResolver(securityResourceRequestResolver);
@@ -219,10 +219,16 @@ abstract class AbstractJsonServiceExporter extends RemoteExporter implements Ini
         this.parallelBatchProcessingTimeout = parallelBatchProcessingTimeout;
     }
 
+	/**
+	 * @param securityServletRequestResolver creates Authentication object from HttpServletRequest
+	 */
 	public void setSecurityServletRequestResolver(SecurityServletRequestResolver securityServletRequestResolver) {
 		this.securityServletRequestResolver = securityServletRequestResolver;
 	}
 
+	/**
+	 * @param securityResourceRequestResolver creates Authentication object from ResourceRequest
+	 */
 	public void setSecurityResourceRequestResolver(SecurityResourceRequestResolver securityResourceRequestResolver) {
 		this.securityResourceRequestResolver = securityResourceRequestResolver;
 	}
