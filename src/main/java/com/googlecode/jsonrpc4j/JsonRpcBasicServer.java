@@ -1103,25 +1103,18 @@ public class JsonRpcBasicServer {
 	}
 
     /**
-     * Sets the configured {@link ExecutorService} to use it for parallel JSON-RPC batch processing
-     *
+	 * Sets the configured {@link ExecutorService} to use it for parallel JSON-RPC batch processing
+	 * and wraps it with DelegatingSecurityContextExecutorService.
+	 *
      * @param batchExecutorService configured {@link ExecutorService}
      */
     public void setBatchExecutorService(ExecutorService batchExecutorService) {
-        this.batchExecutorService = batchExecutorService;
+    	if (batchExecutorService == null || batchExecutorService instanceof DelegatingSecurityContextExecutorService) {
+			this.batchExecutorService = batchExecutorService;
+		} else {
+			this.batchExecutorService = new DelegatingSecurityContextExecutorService(batchExecutorService);
+		}
     }
-
-	/**
-	 * Sets the configured {@link ExecutorService} to use it for parallel JSON-RPC batch processing
-	 * and wraps it with DelegatingSecurityContextExecutorService.
-	 * Must be used instead of {@link #setBatchExecutorService(ExecutorService)} since we don't know how new threads are created in ExecutorService
-	 *
-	 * @see <a href="https://github.com/spring-projects/spring-security/issues/6856">this issue</a>
-	 * @param batchExecutorService configured {@link ExecutorService}
-	 */
-	public void setBatchExecutorServiceAndWrapWithSecureExecutor(ExecutorService batchExecutorService) {
-    	this.batchExecutorService = new DelegatingSecurityContextExecutorService(batchExecutorService);
-	}
 
 	/**
 	 * @param parallelBatchProcessingTimeout timeout used for parallel batch processing

@@ -75,7 +75,7 @@ abstract class AbstractJsonServiceExporter extends RemoteExporter implements Ini
 		jsonRpcServer.setHttpStatusCodeProvider(httpStatusCodeProvider);
 		jsonRpcServer.setConvertedParameterTransformer(convertedParameterTransformer);
 		jsonRpcServer.setShouldLogInvocationErrors(shouldLogInvocationErrors);
-		jsonRpcServer.setBatchExecutorServiceAndWrapWithSecureExecutor(batchExecutorService);
+		jsonRpcServer.setBatchExecutorService(batchExecutorService);
 		jsonRpcServer.setParallelBatchProcessingTimeout(parallelBatchProcessingTimeout);
 		jsonRpcServer.setSecurityServletRequestResolver(securityServletRequestResolver);
 		jsonRpcServer.setSecurityResourceRequestResolver(securityResourceRequestResolver);
