@@ -1,11 +1,11 @@
 package com.googlecode.jsonrpc4j.spring;
 
-import org.springframework.security.core.Authentication;
-
 import javax.servlet.http.HttpServletRequest;
+import java.util.concurrent.ExecutorService;
 
 public interface SecurityServletRequestResolver {
 
-    Authentication getContext(HttpServletRequest servletRequest);
+    void resolveContext(HttpServletRequest servletRequest);
 
+    ExecutorService transformExecutorService(ExecutorService batchExecutorService);
 }

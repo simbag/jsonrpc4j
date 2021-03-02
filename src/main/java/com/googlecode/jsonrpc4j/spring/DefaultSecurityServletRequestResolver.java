@@ -1,12 +1,15 @@
 package com.googlecode.jsonrpc4j.spring;
 
-import org.springframework.security.core.Authentication;
-
 import javax.servlet.http.HttpServletRequest;
+import java.util.concurrent.ExecutorService;
 
 public class DefaultSecurityServletRequestResolver implements SecurityServletRequestResolver {
     @Override
-    public Authentication getContext(HttpServletRequest servletRequest) {
-        return null;
+    public void resolveContext(HttpServletRequest servletRequest) {
+    }
+
+    @Override
+    public ExecutorService transformExecutorService(ExecutorService batchExecutorService) {
+        return batchExecutorService;
     }
 }

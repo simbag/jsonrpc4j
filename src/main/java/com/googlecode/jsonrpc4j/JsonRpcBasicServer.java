@@ -2,8 +2,15 @@ package com.googlecode.jsonrpc4j;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.node.*;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.googlecode.jsonrpc4j.ErrorResolver.JsonError;
 import com.googlecode.jsonrpc4j.spring.DefaultSecurityResourceRequestResolver;
 import com.googlecode.jsonrpc4j.spring.DefaultSecurityServletRequestResolver;
@@ -12,17 +19,28 @@ import com.googlecode.jsonrpc4j.spring.SecurityServletRequestResolver;
 import net.iharder.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.concurrent.DelegatingSecurityContextExecutorService;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.*;
+import java.lang.reflect.Array;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.lang.reflect.Type;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +58,7 @@ import static com.googlecode.jsonrpc4j.Util.hasNonNullData;
  */
 @SuppressWarnings({"unused", "WeakerAccess"})
 public class JsonRpcBasicServer {
-	
+
 	public static final String JSONRPC_CONTENT_TYPE = "application/json-rpc";
 	public static final String PARAMS = "params";
 	public static final String METHOD = "method";
@@ -64,11 +82,11 @@ public class JsonRpcBasicServer {
 	private static Pattern BASE64_PATTERN = Pattern.compile("[A-Za-z0-9_=-]+");
 	private static Class<? extends Annotation> WEB_PARAM_ANNOTATION_CLASS;
 	private static Method WEB_PARAM_NAME_METHOD;
-	
+
 	static {
 		loadAnnotationSupportEngine();
 	}
-	
+
 	private final ObjectMapper mapper;
 	private final Class<?> remoteInterface;
 	private final Object handler;
@@ -98,7 +116,7 @@ public class JsonRpcBasicServer {
 	public JsonRpcBasicServer(final ObjectMapper mapper, final Object handler) {
 		this(mapper, handler, null);
 	}
-	
+
 	/**
 	 * Creates the server with the given {@link ObjectMapper} delegating
 	 * all calls to the given {@code handler} {@link Object} but only
@@ -116,7 +134,7 @@ public class JsonRpcBasicServer {
 			logger.debug("created server for interface {} with handler {}", remoteInterface, handler.getClass());
 		}
 	}
-	
+
 	/**
 	 * Creates the server with a default {@link ObjectMapper} delegating
 	 * all calls to the given {@code handler} {@link Object} but only
@@ -128,7 +146,7 @@ public class JsonRpcBasicServer {
 	public JsonRpcBasicServer(final Object handler, final Class<?> remoteInterface) {
 		this(new ObjectMapper(), handler, remoteInterface);
 	}
-	
+
 	/**
 	 * Creates the server with a default {@link ObjectMapper} delegating
 	 * all calls to the given {@code handler}.
@@ -138,7 +156,7 @@ public class JsonRpcBasicServer {
 	public JsonRpcBasicServer(final Object handler) {
 		this(new ObjectMapper(), handler, null);
 	}
-	
+
 	private static void loadAnnotationSupportEngine() {
 		final ClassLoader classLoader = JsonRpcBasicServer.class.getClassLoader();
 		try {
@@ -148,7 +166,7 @@ public class JsonRpcBasicServer {
 			logger.error("Could not find {}.{}", WEB_PARAM_ANNOTATION_CLASS_LOADER, NAME, e);
 		}
 	}
-	
+
 	/**
 	 * Returns parameters into an {@link InputStream} of JSON data.
 	 *
@@ -159,9 +177,9 @@ public class JsonRpcBasicServer {
 	 * @throws IOException on error
 	 */
 	static InputStream createInputStream(String method, String id, String params) throws IOException {
-		
+
 		StringBuilder envelope = new StringBuilder();
-		
+
 		envelope.append("{\"");
 		envelope.append(JSONRPC);
 		envelope.append("\":\"");
@@ -169,19 +187,19 @@ public class JsonRpcBasicServer {
 		envelope.append("\",\"");
 		envelope.append(ID);
 		envelope.append("\":");
-		
+
 		// the 'id' value is assumed to be numerical.
-		
+
 		if (null != id && !id.isEmpty()) {
 			envelope.append(id);
 		} else {
 			envelope.append("null");
 		}
-		
+
 		envelope.append(",\"");
 		envelope.append(METHOD);
 		envelope.append("\":");
-		
+
 		if (null != method && !method.isEmpty()) {
 			envelope.append('"');
 			envelope.append(method);
@@ -192,16 +210,16 @@ public class JsonRpcBasicServer {
 		envelope.append(",\"");
 		envelope.append(PARAMS);
 		envelope.append("\":");
-		
+
 		if (null != params && !params.isEmpty()) {
 			String decodedParams;
-			
+
 			// some specifications suggest that the GET "params" query parameter should be Base64 encoded and
 			// some suggest not.  Try to deal with both scenarios -- the code here was previously only doing
 			// Base64 decoding.
 			// http://www.simple-is-better.org/json-rpc/transport_http.html
 			// http://www.jsonrpc.org/historical/json-rpc-over-http.html#encoded-parameters
-			
+
 			if (BASE64_PATTERN.matcher(params).matches()) {
 				decodedParams = new String(Base64.decode(params), StandardCharsets.UTF_8);
 			} else {
@@ -210,30 +228,30 @@ public class JsonRpcBasicServer {
 					case '{':
 						decodedParams = params;
 						break;
-					
+
 					default:
 						throw new IOException("badly formed 'param' parameter starting with; [" + params.charAt(0) + "]");
 				}
 			}
-			
+
 			envelope.append(decodedParams);
 		} else {
 			envelope.append("[]");
 		}
-		
+
 		envelope.append('}');
-		
+
 		return new ByteArrayInputStream(envelope.toString().getBytes(StandardCharsets.UTF_8));
 	}
-	
+
 	public RequestInterceptor getRequestInterceptor() {
 		return requestInterceptor;
 	}
-	
+
 	public void setRequestInterceptor(RequestInterceptor requestInterceptor) {
 		this.requestInterceptor = requestInterceptor;
 	}
-	
+
 	/**
 	 * Handles a single request from the given {@link InputStream},
 	 * that is to say that a single {@link JsonNode} is read from
@@ -265,7 +283,7 @@ public class JsonRpcBasicServer {
             return responseError.getCode();
 		}
 	}
-	
+
 	/**
 	 * Returns the handler's class or interfaces.  The variable serviceName is ignored in this class.
 	 *
@@ -281,7 +299,7 @@ public class JsonRpcBasicServer {
 			return new Class<?>[]{handler.getClass()};
 		}
 	}
-	
+
 	/**
 	 * Handles the given {@link JsonNode} and creates {@link JsonResponse}
 	 *
@@ -409,7 +427,7 @@ public class JsonRpcBasicServer {
     private boolean isError(JsonResponse result) {
 		return result.getCode() != JsonError.OK.code;
 	}
-	
+
 	/**
 	 * Handles the given {@link ObjectNode} and creates {@link JsonResponse}
 	 *
@@ -418,12 +436,12 @@ public class JsonRpcBasicServer {
 	 */
 	private JsonResponse handleObject(final ObjectNode node) {
 		logger.debug("Request: {}", node);
-		
+
 		if (!isValidRequest(node)) {
 			return createResponseError(VERSION, NULL, JsonError.INVALID_REQUEST);
 		}
 		Object id = parseId(node.get(ID));
-		
+
 		String jsonRpc = hasNonNullData(node, JSONRPC) ? node.get(JSONRPC).asText() : VERSION;
 		if (!hasNonNullData(node, METHOD)) {
 			return createResponseError(jsonRpc, id, JsonError.METHOD_NOT_FOUND);
@@ -432,7 +450,7 @@ public class JsonRpcBasicServer {
 		final String fullMethodName = node.get(METHOD).asText();
 		final String partialMethodName = getMethodName(fullMethodName);
 		final String serviceName = getServiceName(fullMethodName);
-		
+
 		Set<Method> methods = findCandidateMethods(getHandlerInterfaces(serviceName), partialMethodName);
 		if (methods.isEmpty()) {
 			return createResponseError(jsonRpc, id, JsonError.METHOD_NOT_FOUND);
@@ -471,11 +489,11 @@ public class JsonRpcBasicServer {
 
     private JsonResponse handleError(Object id, String jsonRpc, AMethodWithItsArgs methodArgs, Throwable e) {
 		Throwable unwrappedException = getException(e);
-		
+
 		if (shouldLogInvocationErrors) {
 			logger.warn("Error in JSON-RPC Service", unwrappedException);
 		}
-		
+
 		JsonError error = resolveError(methodArgs, unwrappedException);
         JsonResponse responseError = createResponseError(jsonRpc, id, error);
         if (rethrowExceptions) {
@@ -484,7 +502,7 @@ public class JsonRpcBasicServer {
         return responseError;
 
 	}
-	
+
 	private Throwable getException(final Throwable thrown) {
 		Throwable e = thrown;
 		while (e instanceof InvocationTargetException) {
@@ -497,7 +515,7 @@ public class JsonRpcBasicServer {
 		}
 		return e;
 	}
-	
+
 	private JsonError resolveError(AMethodWithItsArgs methodArgs, Throwable e) {
 		JsonError error;
 		final ErrorResolver currentResolver = errorResolver == null ? DEFAULT_ERROR_RESOLVER : errorResolver;
@@ -507,19 +525,19 @@ public class JsonRpcBasicServer {
 		}
 		return error;
 	}
-	
+
 	private boolean isNotificationRequest(Object id) {
 		return id == null;
 	}
-	
+
 	private boolean isValidRequest(ObjectNode node) {
 		return backwardsCompatible || hasMethodAndVersion(node);
 	}
-	
+
 	private boolean hasMethodAndVersion(ObjectNode node) {
 		return node.has(JSONRPC) && node.has(METHOD);
 	}
-	
+
 	/**
 	 * Get the service name from the methodNode.  In this class, it is always
 	 * <code>null</code>.  Subclasses may parse the methodNode for service name.
@@ -530,7 +548,7 @@ public class JsonRpcBasicServer {
 	protected String getServiceName(final String methodName) {
 		return null;
 	}
-	
+
 	/**
 	 * Get the method name from the methodNode.
 	 *
@@ -540,7 +558,7 @@ public class JsonRpcBasicServer {
 	protected String getMethodName(final String methodName) {
 		return methodName;
 	}
-	
+
 	/**
 	 * Get the handler (object) that should be invoked to execute the specified
 	 * RPC method.  Used by subclasses to return handlers specific to a service.
@@ -551,7 +569,7 @@ public class JsonRpcBasicServer {
 	protected Object getHandler(String serviceName) {
 		return handler;
 	}
-	
+
 	/**
 	 * Invokes the given method on the {@code handler} passing
 	 * the given params (after converting them to beans\objects)
@@ -621,11 +639,11 @@ public class JsonRpcBasicServer {
 	private boolean hasReturnValue(Method m) {
 		return m.getGenericReturnType() != null;
 	}
-	
+
 	private Object[] convertJsonToParameters(Method m, List<JsonNode> params) throws IOException {
 		Object[] convertedParams = new Object[params.size()];
 		Type[] parameterTypes = m.getGenericParameterTypes();
-		
+
 		for (int i = 0; i < parameterTypes.length; i++) {
 			JsonParser paramJsonParser = mapper.treeAsTokens(params.get(i));
 			JavaType paramJavaType = mapper.getTypeFactory().constructType(parameterTypes[i]);
@@ -734,7 +752,7 @@ public class JsonRpcBasicServer {
 		}
 		return matchedMethod;
 	}
-	
+
 	private Set<String> collectFieldNames(JsonNode paramsNode) {
 		Set<String> fieldNames = new HashSet<>();
 		Iterator<String> itr = paramsNode.fieldNames();
@@ -743,11 +761,11 @@ public class JsonRpcBasicServer {
 		}
 		return fieldNames;
 	}
-	
+
 	private boolean hasNoParameters(JsonNode paramsNode) {
 		return isNullNodeOrValue(paramsNode);
 	}
-	
+
 	/**
 	 * Finds the {@link Method} from the supplied {@link Set} that
 	 * best matches the rest of the arguments supplied and returns
@@ -768,7 +786,7 @@ public class JsonRpcBasicServer {
 		Method bestMethod = getBestMatchingArgTypeMethod(paramNodes, numParams, matchedMethods);
 		return new AMethodWithItsArgs(bestMethod, paramCount, paramNodes);
 	}
-	
+
 	private Method getBestMatchingArgTypeMethod(ArrayNode paramNodes, int numParams, Set<Method> matchedMethods) {
 		if (matchedMethods.size() == 1 || numParams == 0) {
 			return matchedMethods.iterator().next();
@@ -806,7 +824,7 @@ public class JsonRpcBasicServer {
 		}
 		return null;
 	}
-	
+
 	private int getNumArgTypeMatches(ArrayNode paramNodes, int numParams, List<Class<?>> parameterTypes) {
 		int numMatches = 0;
 		for (int i = 0; i < parameterTypes.size() && i < numParams; i++) {
@@ -816,7 +834,7 @@ public class JsonRpcBasicServer {
 		}
 		return numMatches;
 	}
-	
+
 	private Set<Method> collectMethodsMatchingParamCount(Set<Method> methods, int paramCount, int bestParamNumDiff) {
 		Set<Method> matchedMethods = new HashSet<>();
 		// check every method
@@ -833,31 +851,31 @@ public class JsonRpcBasicServer {
 		}
 		return matchedMethods;
 	}
-	
+
 	private boolean hasLessAbsParamDiff(int bestParamNumDiff, int paramNumDiff) {
 		return Math.abs(paramNumDiff) < Math.abs(bestParamNumDiff);
 	}
-	
+
 	private boolean acceptParamCount(int paramNumDiff) {
 		return paramNumDiff == 0 || acceptNonExactParam(paramNumDiff);
 	}
-	
+
 	private boolean acceptNonExactParam(int paramNumDiff) {
 		return acceptMoreParam(paramNumDiff) || acceptLessParam(paramNumDiff);
 	}
-	
+
 	private boolean acceptLessParam(int paramNumDiff) {
 		return allowLessParams && paramNumDiff > 0;
 	}
-	
+
 	private boolean acceptMoreParam(int paramNumDiff) {
 		return allowExtraParams && paramNumDiff < 0;
 	}
-	
+
 	private boolean hasLessOrEqualAbsParamDiff(int bestParamNumDiff, int paramNumDiff) {
 		return Math.abs(paramNumDiff) <= Math.abs(bestParamNumDiff);
 	}
-	
+
 	/**
 	 * Finds the {@link Method} from the supplied {@link Set} that best matches the rest of the arguments supplied and
 	 * returns it as a {@link AMethodWithItsArgs} class.
@@ -869,15 +887,15 @@ public class JsonRpcBasicServer {
 	 */
 	private AMethodWithItsArgs findBestMethodUsingParamNames(Set<Method> methods, Set<String> paramNames, ObjectNode paramNodes) {
 		ParameterCount max = new ParameterCount();
-		
+
 		for (Method method : methods) {
 			List<Class<?>> parameterTypes = getParameterTypes(method);
-			
+
 			int typeNameCountDiff = parameterTypes.size() - paramNames.size();
 			if (!acceptParamCount(typeNameCountDiff)) {
 				continue;
 			}
-			
+
 			ParameterCount parStat = new ParameterCount(paramNames, paramNodes, parameterTypes, method);
 			if (!acceptParamCount(parStat.nameCount - paramNames.size())) {
 				continue;
@@ -890,17 +908,17 @@ public class JsonRpcBasicServer {
 			return null;
 		}
 		return new AMethodWithItsArgs(max.method, paramNames, max.allNames, paramNodes);
-		
+
 	}
-	
+
 	private boolean hasMoreMatches(int maxMatchingParams, int numMatchingParams) {
 		return numMatchingParams > maxMatchingParams;
 	}
-	
+
 	private boolean missingAnnotation(JsonRpcParam name) {
 		return name == null;
 	}
-	
+
 	/**
 	 * Determines whether or not the given {@link JsonNode} matches
 	 * the given type.  This method is limited to a few java types
@@ -940,23 +958,23 @@ public class JsonRpcBasicServer {
 		}
 		return false;
 	}
-	
+
 	private boolean byteOrCharAssignable(Class<?> type) {
 		return byte[].class.isAssignableFrom(type) || Byte[].class.isAssignableFrom(type) ||
 				char[].class.isAssignableFrom(type) || Character[].class.isAssignableFrom(type);
 	}
-	
+
 	private boolean isNumericAssignable(Class<?> type) {
 		return Number.class.isAssignableFrom(type) || short.class.isAssignableFrom(type) || int.class.isAssignableFrom(type)
 				|| long.class.isAssignableFrom(type) || float.class.isAssignableFrom(type) || double.class.isAssignableFrom(type);
 	}
-	
+
 	private JsonError writeAndFlushValueError(OutputStream output, ErrorObjectWithJsonError value) throws IOException {
 		logger.debug("failed {}", value);
 		writeAndFlushValue(output, value.node);
 		return value.error;
 	}
-	
+
 	/**
 	 * Writes and flushes a value to the given {@link OutputStream}
 	 * and prevents Jackson from closing it. Also writes newline.
@@ -974,7 +992,7 @@ public class JsonRpcBasicServer {
 	    mapper.writeValue(new NoCloseOutputStream(output), value);
 		output.write('\n');
 	}
-	
+
 	private Object parseId(JsonNode node) {
 		if (isNullNodeOrValue(node)) {
 			return null;
@@ -1000,11 +1018,11 @@ public class JsonRpcBasicServer {
 		}
 		throw new IllegalArgumentException("Unknown id type");
 	}
-	
+
 	private boolean isNullNodeOrValue(JsonNode node) {
 		return node == null || node.isNull();
 	}
-	
+
 	/**
 	 * Sets whether or not the server should be backwards
 	 * compatible to JSON-RPC 1.0.  This only includes the
@@ -1016,7 +1034,7 @@ public class JsonRpcBasicServer {
 	public void setBackwardsCompatible(boolean backwardsCompatible) {
 		this.backwardsCompatible = backwardsCompatible;
 	}
-	
+
 	/**
 	 * Sets whether or not the server should re-throw exceptions.
 	 *
@@ -1025,7 +1043,7 @@ public class JsonRpcBasicServer {
 	public void setRethrowExceptions(boolean rethrowExceptions) {
 		this.rethrowExceptions = rethrowExceptions;
 	}
-	
+
 	/**
 	 * Sets whether or not the server should allow superfluous
 	 * parameters to method calls.
@@ -1035,7 +1053,7 @@ public class JsonRpcBasicServer {
 	public void setAllowExtraParams(boolean allowExtraParams) {
 		this.allowExtraParams = allowExtraParams;
 	}
-	
+
 	/**
 	 * Sets whether or not the server should allow less parameters
 	 * than required to method calls (passing null for missing params).
@@ -1057,7 +1075,7 @@ public class JsonRpcBasicServer {
 	public void setErrorResolver(ErrorResolver errorResolver) {
 		this.errorResolver = errorResolver;
 	}
-	
+
 	/**
 	 * Sets the {@link InvocationListener} instance that can be
 	 * used to provide feedback for capturing method-invocation
@@ -1065,11 +1083,11 @@ public class JsonRpcBasicServer {
 	 *
 	 * @param invocationListener is the listener to set
 	 */
-	
+
 	public void setInvocationListener(InvocationListener invocationListener) {
 		this.invocationListener = invocationListener;
 	}
-	
+
 	/**
 	 * Sets the {@link HttpStatusCodeProvider} instance to use for HTTP error results.
 	 *
@@ -1079,7 +1097,7 @@ public class JsonRpcBasicServer {
 	public void setHttpStatusCodeProvider(HttpStatusCodeProvider httpStatusCodeProvider) {
 		this.httpStatusCodeProvider = httpStatusCodeProvider;
 	}
-	
+
 	/**
 	 * Sets the {@link ConvertedParameterTransformer} instance that can be
 	 * used to mutate the deserialized arguments passed to the service method during invocation.
@@ -1089,7 +1107,7 @@ public class JsonRpcBasicServer {
 	public void setConvertedParameterTransformer(ConvertedParameterTransformer convertedParameterTransformer) {
 		this.convertedParameterTransformer = convertedParameterTransformer;
 	}
-	
+
 	/**
 	 * If true, then when errors arise in the invocation of JSON-RPC services, the error will be
 	 * logged together with the underlying stack trace.  When false, no error will be logged.
@@ -1104,17 +1122,21 @@ public class JsonRpcBasicServer {
 
     /**
 	 * Sets the configured {@link ExecutorService} to use it for parallel JSON-RPC batch processing
-	 * and wraps it with DelegatingSecurityContextExecutorService.
 	 *
      * @param batchExecutorService configured {@link ExecutorService}
      */
     public void setBatchExecutorService(ExecutorService batchExecutorService) {
-    	if (batchExecutorService == null || batchExecutorService instanceof DelegatingSecurityContextExecutorService) {
-			this.batchExecutorService = batchExecutorService;
-		} else {
-			this.batchExecutorService = new DelegatingSecurityContextExecutorService(batchExecutorService);
-		}
+    	this.batchExecutorService = batchExecutorService;
     }
+
+	/**
+	 * Wraps executorService with DelegatingSecurityContextExecutorService
+	 */
+	public void wrapBatchExecutorService() {
+		if (securityServletRequestResolver != null) {
+			this.batchExecutorService = securityServletRequestResolver.transformExecutorService(batchExecutorService);
+		}
+	}
 
 	/**
 	 * @param parallelBatchProcessingTimeout timeout used for parallel batch processing
@@ -1140,12 +1162,12 @@ public class JsonRpcBasicServer {
 	private static class ErrorObjectWithJsonError {
 		private final ObjectNode node;
 		private final JsonError error;
-		
+
 		public ErrorObjectWithJsonError(ObjectNode node, JsonError error) {
 			this.node = node;
 			this.error = error;
 		}
-		
+
 		@Override
 		public String toString() {
 			return "ErrorObjectWithJsonError{" +
@@ -1154,23 +1176,23 @@ public class JsonRpcBasicServer {
 					'}';
 		}
 	}
-	
+
 	/**
 	 * Simple inner class for the {@code findXXX} methods.
 	 */
 	private static class AMethodWithItsArgs {
 		private final List<JsonNode> arguments = new ArrayList<>();
 		private final Method method;
-		
+
 		public AMethodWithItsArgs(Method method, int paramCount, ArrayNode paramNodes) {
 			this(method);
 			collectArgumentsBasedOnCount(method, paramCount, paramNodes);
 		}
-		
+
 		public AMethodWithItsArgs(Method method) {
 			this.method = method;
 		}
-		
+
 		private void collectArgumentsBasedOnCount(Method method, int paramCount, ArrayNode paramNodes) {
 			int numParameters = method.getParameterTypes().length;
 			for (int i = 0; i < numParameters; i++) {
@@ -1181,12 +1203,12 @@ public class JsonRpcBasicServer {
 				}
 			}
 		}
-		
+
 		public AMethodWithItsArgs(Method method, Set<String> paramNames, List<JsonRpcParam> allNames, ObjectNode paramNodes) {
 			this(method);
 			collectArgumentsBasedOnName(method, paramNames, allNames, paramNodes);
 		}
-		
+
 		public AMethodWithItsArgs(Method method, JsonNode jsonNode) {
 			this(method);
 			collectVarargsFromNode(jsonNode);
@@ -1233,15 +1255,15 @@ public class JsonRpcBasicServer {
 		    arguments.add(argumentJsonNode);
         }
 	}
-	
+
 	private static class InvokeListenerHandler implements AutoCloseable {
-		
+
 		private final long startMs = System.currentTimeMillis();
 		private final AMethodWithItsArgs methodArgs;
 		private final InvocationListener invocationListener;
 		public Throwable error = null;
 		public JsonNode result = null;
-		
+
 		public InvokeListenerHandler(AMethodWithItsArgs methodArgs, InvocationListener invocationListener) {
 			this.methodArgs = methodArgs;
 			this.invocationListener = invocationListener;
@@ -1249,7 +1271,7 @@ public class JsonRpcBasicServer {
 				this.invocationListener.willInvoke(methodArgs.method, methodArgs.arguments);
 			}
 		}
-		
+
 		@Override
 		public void close() {
 			if (invocationListener != null) {
@@ -1257,20 +1279,20 @@ public class JsonRpcBasicServer {
 			}
 		}
 	}
-	
+
 	private class ParameterCount {
 		private final int typeCount;
 		private final int nameCount;
 		private final List<JsonRpcParam> allNames;
 		private final Method method;
-		
+
 		public ParameterCount(Set<String> paramNames, ObjectNode paramNodes, List<Class<?>> parameterTypes, Method method) {
 			this.allNames = getAnnotatedParameterNames(method);
 			this.method = method;
 			int typeCount = 0;
 			int nameCount = 0;
 			int at = 0;
-			
+
 			for (JsonRpcParam name : this.allNames) {
 				if (missingAnnotation(name)) {
 					continue;
@@ -1288,7 +1310,7 @@ public class JsonRpcBasicServer {
 			this.typeCount = typeCount;
 			this.nameCount = nameCount;
 		}
-		
+
 		@SuppressWarnings("Convert2streamapi")
 		private List<JsonRpcParam> getAnnotatedParameterNames(Method method) {
 			List<JsonRpcParam> parameterNames = new ArrayList<>();
@@ -1304,20 +1326,20 @@ public class JsonRpcBasicServer {
 			}
 			return parameterNames;
 		}
-		
+
 		private List<? extends List<? extends Annotation>> getWebParameterAnnotations(Method method) {
 			if (WEB_PARAM_ANNOTATION_CLASS == null) {
 				return new ArrayList<>();
 			}
 			return ReflectionUtil.getParameterAnnotations(method, WEB_PARAM_ANNOTATION_CLASS);
 		}
-		
+
 		private JsonRpcParam createNewJsonRcpParamType(final Annotation annotation) {
 			return new JsonRpcParam() {
 				public Class<? extends Annotation> annotationType() {
 					return JsonRpcParam.class;
 				}
-				
+
 				public String value() {
 					try {
 						return (String) WEB_PARAM_NAME_METHOD.invoke(annotation);
@@ -1327,26 +1349,26 @@ public class JsonRpcBasicServer {
 				}
 			};
 		}
-		
+
 		private List<List<JsonRpcParam>> getJsonRpcParamAnnotations(Method method) {
 			return ReflectionUtil.getParameterAnnotations(method, JsonRpcParam.class);
 		}
-		
+
 		public ParameterCount() {
 			typeCount = -1;
 			nameCount = -1;
 			allNames = null;
 			method = null;
 		}
-		
+
 		public int getTypeCount() {
 			return typeCount;
 		}
-		
+
 		public int getNameCount() {
 			return nameCount;
 		}
-		
+
 	}
 
 	public List<JsonRpcInterceptor> getInterceptorList() {

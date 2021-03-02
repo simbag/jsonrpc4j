@@ -22,5 +22,6 @@ public class JsonRpcServerParallelBatchProcessingTest extends JsonRpcServerBatch
                 TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(50));
         jsonRpcServer.setBatchExecutorService(threadPoolExecutor);
+        jsonRpcServer.wrapBatchExecutorService();
     }
 }

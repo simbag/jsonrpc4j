@@ -79,6 +79,7 @@ abstract class AbstractJsonServiceExporter extends RemoteExporter implements Ini
 		jsonRpcServer.setParallelBatchProcessingTimeout(parallelBatchProcessingTimeout);
 		jsonRpcServer.setSecurityServletRequestResolver(securityServletRequestResolver);
 		jsonRpcServer.setSecurityResourceRequestResolver(securityResourceRequestResolver);
+		jsonRpcServer.wrapBatchExecutorService();
 
 		if (contentType != null) {
 			jsonRpcServer.setContentType(contentType);
