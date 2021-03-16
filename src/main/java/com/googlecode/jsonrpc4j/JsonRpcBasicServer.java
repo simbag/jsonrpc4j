@@ -378,8 +378,16 @@ public class JsonRpcBasicServer {
         for (int i = 0; i < node.size(); i++) {
             JsonNode jsonNode = node.get(i);
             Object id = parseId(jsonNode.get(ID));
-            Future<JsonResponse> responseFuture = batchExecutorService.submit(() -> handleJsonNodeRequest(jsonNode));
-            responses.put(id, responseFuture);
+			try {
+				Future<JsonResponse> responseFuture = batchExecutorService.submit(() -> handleJsonNodeRequest(jsonNode));
+				responses.put(id, responseFuture);
+			} catch (Throwable t) {
+				result = JsonError.BULK_ERROR;
+				errorCount += 1;
+				JsonError jsonError = new JsonError(INTERNAL_ERROR.code, t.getMessage(), t.getClass().getName());
+				JsonResponse error = createResponseError(VERSION, id, jsonError);
+				batchResult.add(error.getResponse());
+			}
         }
 
         for (Map.Entry<Object, Future<JsonResponse>> responseFuture : responses.entrySet()) {
