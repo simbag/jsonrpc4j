@@ -15,7 +15,7 @@ plugins {
 }
 
 description = 'This project aims to provide the facility to easily implement JSON-RPC for the java programming language.'
-version = '1.5.4-build.4'
+version = '1.5.4-build.6'
 group = 'sbp.com.sbt.dataspace'
 
 sourceCompatibility = 1.8
@@ -60,7 +60,6 @@ dependencies {
     compile "org.springframework:spring-context:${springVersion}", optional
     compile "org.springframework:spring-web:${springVersion}", optional
     compile "org.springframework:spring-webmvc:${springVersion}", optional
-    compile "org.springframework.security:spring-security-core:${springSecurityVersion}", optional
 
     compile 'commons-codec:commons-codec:1.10', optional
     compile 'org.apache.httpcomponents:httpcore-nio:4.4.5', optional
